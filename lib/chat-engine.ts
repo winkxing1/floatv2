@@ -1862,6 +1862,17 @@ export async function buildChatPromptMessages(
         excludeOfflineSessionId: options?.excludeOfflineSessionId,
         promptTimestampOptions,
     });
+    // Offline turns from the current session are intentionally excluded from the===========================修改
+    // native timeline to avoid duplicating them in short-term memory. They still
+    // need to participate in world-book keyword activation, though; otherwise
+    // the same keyword can activate a book online but not in offline mode.
+    const baseWorldBookActivationContext = options?.worldBookActivationContext || wbActivationContext;
+    const worldBookActivationContext = isOfflineMode
+        ? [
+            baseWorldBookActivationContext,
+            historyForPrompt.slice(-10).map(message => message.content).filter(Boolean).join("\n"),
+        ].filter(value => value.trim()).join("\n")
+        : baseWorldBookActivationContext;
     const promptHistory = applyVisionImagePromptLimit(
         truncatedHistory.map(msg => ({ ...msg })),
         session.visionImagePromptLimit,
@@ -1874,7 +1885,8 @@ export async function buildChatPromptMessages(
     }
 
     const [memResults, coreResults, musicLocal, musicCloud] = await Promise.all([
-        retrieveMemoriesForPrompt(character.id, wbActivationContext, memConfig).catch(() => null),
+        //retrieveMemoriesForPrompt(character.id, wbActivationContext, memConfig).catch(() => null),===========================修改
+        retrieveMemoriesForPrompt(character.id, worldBookActivationContext, memConfig).catch(() => null),
         retrieveCoreMemoriesForPrompt(character.id, memConfig).catch(() => null),
         buildMusicLocalMacro(),
         buildMusicCloudMacro(),
@@ -1926,7 +1938,8 @@ export async function buildChatPromptMessages(
         currentSchedule,
         coreMemories,
         longTermMemories,
-        worldBookActivationContext: options?.worldBookActivationContext || wbActivationContext,
+        //worldBookActivationContext: options?.worldBookActivationContext || wbActivationContext,==============================修改
+        worldBookActivationContext,
         activateAllWorldBooks: options?.activateAllWorldBooks,
         recentBlocks,
         unifiedRecentItems,
