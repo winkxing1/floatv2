@@ -44,6 +44,12 @@ const MEMORY_TOKEN_BUDGET_STEP: Record<MemoryBudgetKey, number> = {
     coreMemoryTokenBudget: 1000,
     longTermTokenBudget: 1000,
 };
+// Keep 5,000-token increments after 6,000 while exposing the smaller values.====================修改===============
+const SHORT_TERM_TOKEN_BUDGET_OPTIONS = [
+    1000, 2000, 3000, 4000, 5000, 6000,
+    ...Array.from({ length: 18 }, (_, index) => 11000 + index * 5000),
+    100000,
+];
 const MANUAL_MEMORY_CONTENT_LIMIT = 3000;
 // 详情页时间线最多解析渲染的条数：全量历史可能有几万条，
 // 一次性解析+渲染会把 iOS Safari 的单页内存顶爆（灰屏杀页）
@@ -119,6 +125,7 @@ function MemorySettingsSliderItem({
     min,
     max,
     step,
+    valueOptions,//===============================================修改
     onChange,
 }: {
     icon: LucideIcon;
@@ -129,8 +136,19 @@ function MemorySettingsSliderItem({
     min: number;
     max: number;
     step: number;
+    valueOptions?: number[];//===========================================修改
     onChange: (value: number) => void;
 }) {
+    const optionIndex = valueOptions
+        //? Math.max(0, valueOptions.findIndex(option => option >= value))
+        ? valueOptions.reduce((nearestIndex, option, index) => (
+            Math.abs(option - value) < Math.abs(valueOptions[nearestIndex] - value)
+                ? index
+                : nearestIndex
+        ), 0)
+        : 0;
+    const sliderValue = valueOptions ? optionIndex : value;//================================修改
+    const displayedValue = valueOptions ? valueOptions[optionIndex] : value;//================================修改
     return (
         <div className="menu-item memory-slider-item">
             <div className="memory-slider-header">
@@ -139,15 +157,23 @@ function MemorySettingsSliderItem({
                     <span className="menu-label">{label}</span>
                     <span className="menu-desc">{desc}</span>
                 </div>
-                <span className="ui-slider-value memory-slider-current">{value}</span>
+                <span className="ui-slider-value memory-slider-current">{displayedValue}</span>
             </div>
             <input
                 type="range"
-                min={min}
-                max={max}
-                step={step}
-                value={value}
-                onChange={e => onChange(Number(e.target.value))}
+                //min={min}
+                //max={max}
+                //step={step}
+                //value={value}
+                //onChange={e => onChange(Number(e.target.value))}
+                min={valueOptions ? 0 : min}
+                max={valueOptions ? valueOptions.length - 1 : max}
+                step={valueOptions ? 1 : step}
+                value={sliderValue}
+                onChange={e => {
+                    const next = Number(e.target.value);
+                    onChange(valueOptions ? valueOptions[next] : next);
+                }}
                 className="ui-slider memory-settings-slider"
                 aria-label={label}
             />
@@ -1015,6 +1041,7 @@ export function MemoryBankPage({ view, selectedCharId, onSelectChar, onNotice }:
                         min={MEMORY_TOKEN_BUDGET_MIN.shortTermTokenBudget}
                         max={MEMORY_TOKEN_BUDGET_MAX}
                         step={MEMORY_TOKEN_BUDGET_STEP.shortTermTokenBudget}
+                        valueOptions={SHORT_TERM_TOKEN_BUDGET_OPTIONS}
                         onChange={value => saveBudget("shortTermTokenBudget", value)}
                     />
                     <MemorySettingsSliderItem
